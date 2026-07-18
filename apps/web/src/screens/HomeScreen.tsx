@@ -31,10 +31,6 @@ export function HomeScreen() {
 
   const name = profile.displayName ?? profile.firstName;
   const initial = name.charAt(0).toUpperCase();
-  const winRate =
-    profile.stats.gamesPlayed > 0
-      ? Math.round((profile.stats.wins / profile.stats.gamesPlayed) * 100)
-      : 0;
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-5 p-5">
@@ -56,16 +52,12 @@ export function HomeScreen() {
             <div className="truncate text-xl font-semibold">{name}</div>
             {profile.username && <div className="truncate text-sm text-slate-400">@{profile.username}</div>}
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-accent">{profile.elo}</div>
-            <div className="text-xs uppercase tracking-wide text-slate-500">{t('home.elo')}</div>
-          </div>
         </div>
 
         <div className="mt-5 grid grid-cols-3 gap-3">
           <Stat label={t('home.games')} value={profile.stats.gamesPlayed} />
           <Stat label={t('home.wins')} value={profile.stats.wins} />
-          <Stat label={t('home.winRate')} value={`${winRate}%`} />
+          <Stat label={t('home.losses')} value={profile.stats.losses} />
         </div>
       </div>
 

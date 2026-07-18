@@ -102,15 +102,16 @@ export function inviteDeepLink(code: string): string {
 }
 
 /**
- * Opens Telegram's native "share to a chat" sheet with the invite text + the
- * plain bot link. We deliberately share the bot link (not a `?startapp` deep
- * link): the quick-tunnel URL changes on every restart, so a Main-Mini-App deep
- * link would send a dead address — the code in the text always works. Returns
- * `false` outside Telegram (caller then copies instead).
+ * Opens Telegram's native "share to a chat" sheet with a one-tap invite deep
+ * link (`?startapp=<code>`): on a stable, permanent URL the friend taps it, the
+ * Mini App opens and auto-joins the game — no code, no confirmation. Requires a
+ * **Main Mini App** to be configured in BotFather at the app's URL. The code is
+ * still in the message text as a manual fallback. Returns `false` outside
+ * Telegram (caller then copies instead).
  */
-export function shareInvite(_code: string, message: string): boolean {
+export function shareInvite(code: string, message: string): boolean {
   const tg = getTelegram();
-  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(botLink())}&text=${encodeURIComponent(message)}`;
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteDeepLink(code))}&text=${encodeURIComponent(message)}`;
   if (tg?.openTelegramLink) {
     tg.openTelegramLink(shareUrl);
     return true;

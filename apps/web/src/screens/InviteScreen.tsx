@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/game.store';
 import { useT } from '../i18n/i18n';
-import { shareInvite, botLink } from '../lib/telegram';
+import { shareInvite, inviteDeepLink } from '../lib/telegram';
 
 /**
  * Host's "waiting for a friend" lobby. Shows the invite code with share/copy
@@ -21,7 +21,7 @@ export function InviteScreen() {
   const onShare = () => {
     // Inside Telegram this opens the native share sheet; in a plain browser we
     // fall back to copying the link so there's always a way to send it.
-    if (!shareInvite(code, message)) void copy(`${message}\n${botLink()}`);
+    if (!shareInvite(code, message)) void copy(`${message}\n${inviteDeepLink(code)}`);
   };
 
   const copy = async (text: string) => {
