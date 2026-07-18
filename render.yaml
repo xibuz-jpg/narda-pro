@@ -1,0 +1,49 @@
+# Render Blueprint — bitta joyda: ilova (Docker) + PostgreSQL + Redis.
+# Render bu faylni o'qib hamma xizmatni yaratadi va DATABASE_URL / REDIS_URL ni
+# avtomatik ulaydi. JWT sirlari avtomatik generatsiya qilinadi; faqat
+# TELEGRAM_BOT_TOKEN ni panelда qo'lda kiritasiz (sync: false).
+
+databases:
+  - name: narda-db
+    plan: free
+    region: frankfurt
+    databaseName: narda
+    user: narda
+
+services:
+  # Redis (Key Value) — presence / matchmaking / lock / soat.
+  - type: redis
+    name: narda-redis
+    plan: free
+    region: frankfurt
+    ipAllowList: []          # faqat ichki ulanish (Render tarmog'i ichida)
+
+  # Ilova: API + WebSocket + Mini App (bitta origin).
+  - type: web
+    name: narda-pro
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/health
+    autoDeploy: true          # git push -> avtomatik qayta deploy
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: narda-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: narda-redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true    # Render tasodifiy yaratadi
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_USERNAME
+        value: nardapro_bot
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false            # panelда siz kiritasiz (maxfiy)
