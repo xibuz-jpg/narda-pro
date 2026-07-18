@@ -8,13 +8,13 @@ interface TelegramWebApp {
   };
   colorScheme: 'light' | 'dark';
   themeParams: Record<string, string>;
+  /** Client platform: "tdesktop", "macos", "android", "ios", "weba", "web", … */
+  platform?: string;
   ready(): void;
   expand(): void;
   setHeaderColor?(color: string): void;
   setBackgroundColor?(color: string): void;
   openTelegramLink?(url: string): void;
-  /** Client platform: 'android' | 'ios' | 'tdesktop' | 'macos' | 'weba' | … */
-  platform?: string;
 }
 
 declare global {
@@ -46,6 +46,19 @@ export function getInitData(): string | null {
 /** The Telegram client's language code (e.g. "ru", "uz"), if available. */
 export function getTelegramLanguage(): string | null {
   return getTelegram()?.initDataUnsafe?.user?.language_code ?? null;
+}
+
+/**
+ * Whether the app should default to the landscape (wide) board — true on a
+ * computer, false on a phone. Desktop Telegram apps report their platform
+ * directly; for the web client (or outside Telegram) we fall back to the
+ * viewport being wider than it is tall.
+ */
+export function prefersLandscape(): boolean {
+  const platform = getTelegram()?.platform ?? '';
+  if (platform === 'tdesktop' || platform === 'macos') return true;
+  if (platform === 'android' || platform === 'ios') return false;
+  return typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
 }
 
 /**

@@ -6,7 +6,7 @@ import { GameBoard } from '../components/GameBoard';
 import { TurnBuilder } from '../game/turn-builder';
 import { queryClient } from '../lib/queryClient';
 import { useT, type Translate } from '../i18n/i18n';
-import { isDesktopTelegram } from '../lib/telegram';
+import { prefersLandscape } from '../lib/telegram';
 import type { BoardTarget } from '../game/board/BoardRenderer';
 
 /** Delay before the dice auto-roll on your turn (ms). */
@@ -38,13 +38,10 @@ export function GameScreen() {
   const rerender = () => bump((n) => n + 1);
   // True while a combined move is animating its hops, so taps are ignored.
   const busyRef = useRef(false);
-  // Board orientation: portrait (vertical) by default so the board runs the full
-  // height of a phone screen — far taller than the letter-boxed landscape fit.
-  // Toggleable to landscape via the corner button — except on desktop Telegram,
-  // whose narrow side panel is locked to vertical.
-  const [portrait, setPortrait] = useState(true);
-  const desktop = useMemo(() => isDesktopTelegram(), []);
-  const isPortrait = desktop || portrait;
+  // Board orientation: portrait (vertical) fills a phone top-to-bottom; on a
+  // computer (Telegram Desktop / wide window) landscape fits far better, so the
+  // starting orientation is chosen from the platform. Toggleable either way.
+  const [portrait, setPortrait] = useState(() => !prefersLandscape());
 
   // Reserve thin strips for the floating controls (top: leave / timer /
   // orientation row; bottom: turn banner + action buttons) so the board sits
@@ -178,7 +175,7 @@ export function GameScreen() {
           onTargetClick={onTarget}
           activePlayer={view.activePlayer}
           flip={myColor === Player.White}
-          rotated={isPortrait}
+          rotated={portrait}
           fit
           className="h-full w-full"
         />
@@ -192,17 +189,14 @@ export function GameScreen() {
         ← {t('game.leave')}
       </button>
 
-      {/* Orientation toggle (floating top-right) — hidden on desktop, which is
-          locked to the vertical layout. */}
-      {!desktop && (
-        <button
-          className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-base font-bold text-night-900 shadow-lg"
-          onClick={() => setPortrait((p) => !p)}
-        >
-          <span className="text-xl leading-none">{portrait ? '⬌' : '⬍'}</span>
-          {portrait ? t('game.landscape') : t('game.portrait')}
-        </button>
-      )}
+      {/* Orientation toggle (floating top-right) — switch vertical/horizontal. */}
+      <button
+        className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-base font-bold text-night-900 shadow-lg"
+        onClick={() => setPortrait((p) => !p)}
+      >
+        <span className="text-xl leading-none">{portrait ? '⬌' : '⬍'}</span>
+        {portrait ? t('game.landscape') : t('game.portrait')}
+      </button>
 
       {/* Countdown clock — small, in the top-centre control row. */}
       {view.clock && !view.result && <GameClock clock={view.clock} isMyTurn={isMyTurn} />}
