@@ -47,6 +47,11 @@ const onlineKey = (matchId: string): string => `game:online:${matchId}`;
 
 /** Chess-clock timing: 15s grace per action, then a 3.5-minute reserve bank. */
 const PER_MOVE_MS = 15_000;
+
+/** AI pacing: after it rolls, wait this long before moving (dice are seen to
+ *  settle); a quick beat between any other AI steps. */
+const AI_ROLL_TO_MOVE_MS = 3_000;
+const AI_STEP_MS = 650;
 const RESERVE_MS = 210_000;
 const freshReserve = (): Record<Player, number> => ({
   [Player.White]: RESERVE_MS,
@@ -188,6 +193,7 @@ export class GameService {
    */
   private async advanceAi(matchId: string): Promise<void> {
     for (let guard = 0; guard < 400; guard += 1) {
+      let rolled = false;
       const acted = await this.lock.withLock(`game:${matchId}`, async () => {
         const room = await this.store.load(matchId);
         if (!room) return false;
@@ -201,6 +207,7 @@ export class GameService {
         let next: GameState;
         if (game.phase === GamePhase.AwaitingRoll) {
           next = game.roll(cryptoRandom);
+          rolled = true;
         } else if (game.phase === GamePhase.AwaitingMove && game.dice) {
           const turn = chooseTurnFor(game, level, cryptoRandom);
           next = game.playTurn([...turn.moves]);
@@ -213,7 +220,9 @@ export class GameService {
         return true;
       });
       if (!acted) break;
-      await sleep(650);
+      // Longer pause right after the roll so the dice are seen to settle before
+      // the AI plays; a quick beat otherwise.
+      await sleep(rolled ? AI_ROLL_TO_MOVE_MS : AI_STEP_MS);
     }
   }
 
