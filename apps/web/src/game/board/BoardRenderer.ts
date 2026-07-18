@@ -619,6 +619,30 @@ export class BoardRenderer {
       t.rotation = -this.stageRot; // keep the count upright for the viewer
       t.scale.y *= this.roundFix;
       c.addChild(t);
+    } else {
+      // A little engraved deer on the checker face. A light medallion under it
+      // gives the (multiply-blended) stag contrast on dark checkers too, and it
+      // reads upright for the viewer like the count / centre emblem.
+      const medR = this.checkerR * 0.66;
+      const med = new Graphics();
+      med.circle(0, 0, medR).fill({ color: 0xe6d7b6, alpha: player === Player.White ? 0.55 : 0.9 });
+      med.circle(0, 0, medR).stroke({ width: 1.5, color: 0x8a6a3e, alpha: 0.45 });
+      med.scale.x *= this.roundFix; // no rotation → circular fix on x, like the checker
+      c.addChild(med);
+
+      const deer = new Sprite(this.texEmblem);
+      deer.anchor.set(0.5);
+      deer.width = medR * 1.95;
+      deer.height = medR * 1.95;
+      if (this.emblemIsImage) {
+        deer.blendMode = 'multiply';
+        deer.alpha = 0.95;
+      } else {
+        deer.alpha = 0.7;
+      }
+      deer.rotation = -this.stageRot; // upright for the viewer
+      deer.scale.y *= this.roundFix; // rotated sprite → stretch fix on y
+      c.addChild(deer);
     }
     c.position.set(x, y);
     return c;
