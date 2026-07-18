@@ -39,9 +39,9 @@ const TRAY_GAP = 14;
 const BAR_W = 64;
 
 /** Duration of the dice tumble (ms). */
-const DICE_ROLL_MS = 650;
+const DICE_ROLL_MS = 850;
 /** Duration of a single checker's glide between points (ms). */
-const MOVE_GLIDE_MS = 300;
+const MOVE_GLIDE_MS = 480;
 
 /** A checker moving from one target to another, for animation. */
 interface AnimMove {

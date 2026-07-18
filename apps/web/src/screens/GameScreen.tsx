@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GamePhase, Player, opponent, type Move } from '@narda/game-engine';
 import { useGameStore } from '../store/game.store';
 import { useAuthStore } from '../store/auth.store';
@@ -9,7 +9,9 @@ import { useT, type Translate } from '../i18n/i18n';
 import type { BoardTarget } from '../game/board/BoardRenderer';
 
 /** Delay before the dice auto-roll on your turn (ms). */
-const AUTO_ROLL_MS = 1000;
+const AUTO_ROLL_MS = 1500;
+/** Gap between the hops of a combined (multi-die) move, so each one is seen. */
+const COMBINED_STEP_MS = 520;
 
 export function GameScreen() {
   const { status, view, error, roll, submitMoves, double, respondDouble, resign, cancelSearch, leave } =
@@ -33,6 +35,8 @@ export function GameScreen() {
   const [selected, setSelected] = useState<number | 'bar' | null>(null);
   const [, bump] = useState(0);
   const rerender = () => bump((n) => n + 1);
+  // True while a combined move is animating its hops, so taps are ignored.
+  const busyRef = useRef(false);
   // Board orientation: portrait (vertical) by default so the board runs the full
   // height of a phone screen — far taller than the letter-boxed landscape fit.
   // Toggleable to landscape via the corner button.
@@ -105,21 +109,37 @@ export function GameScreen() {
   const isSource = (t: BoardTarget): t is number | 'bar' => t !== 'off' && tb!.sources().includes(t);
 
   const onTarget = (target: BoardTarget) => {
-    if (!tb || !isMyTurn || phase !== GamePhase.AwaitingMove) return;
+    if (!tb || !isMyTurn || phase !== GamePhase.AwaitingMove || busyRef.current) return;
     if (selected === null) {
       if (isSource(target)) setSelected(target);
       return;
     }
-    // A tapped destination may be one die (a step) or several chained onto the
-    // same checker (played all at once).
+    // A tapped destination may be one die (a step) or several dice chained onto
+    // the same checker.
     const option = tb.moveOptions(selected).find((o) => o.to === target);
     if (option) {
-      option.moves.forEach((m) => tb.play(m));
+      const builder = tb;
+      const finish = () => (builder.isComplete ? submitMoves(builder.result()) : rerender());
       setSelected(null);
-      if (tb.isComplete) {
-        submitMoves(tb.result());
+      const seq = option.moves;
+      if (seq.length <= 1) {
+        if (seq[0]) builder.play(seq[0]);
+        finish();
       } else {
-        rerender();
+        // Combined move: play each hop in turn so the checker is seen moving
+        // die-by-die instead of jumping the whole distance at once.
+        busyRef.current = true;
+        seq.forEach((m, i) => {
+          setTimeout(() => {
+            builder.play(m);
+            if (i === seq.length - 1) {
+              busyRef.current = false;
+              finish();
+            } else {
+              rerender();
+            }
+          }, i * COMBINED_STEP_MS);
+        });
       }
       return;
     }
