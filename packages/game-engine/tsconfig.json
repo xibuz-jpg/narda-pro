@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    // Emit CommonJS so the NestJS (CJS) backend can require the engine, while
+    // bundlers (Vite) consume it transparently via interop.
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

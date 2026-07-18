@@ -1,0 +1,28 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "rootDir": "src",
+    "outDir": "dist",
+    "baseUrl": ".",
+    "types": ["node"],
+    // Apps are leaf builds, not composite library projects. Disabling
+    // composite/incremental avoids the `deleteOutDir` + stale-buildinfo trap
+    // where tsc skips emit because it thinks outputs are up to date.
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "resolveJsonModule": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    // Nest projects relax a couple of the strictest checks that fight
+    // decorator/DI ergonomics; the rest of `strict` stays on.
+    "exactOptionalPropertyTypes": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.spec.ts"]
+}

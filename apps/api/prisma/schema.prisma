@@ -1,0 +1,242 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Narda Pro — database schema (Phase 2 core: identity, auth, profile, matches).
+//
+// Economy, tournaments, social and other bounded contexts add their own models
+// in later phases via forward-only migrations. Design principles:
+//   • 3NF with deliberate indexes on hot query paths (matchmaking, auth).
+//   • Money/results are auditable: matches keep an append-only event log.
+//   • Telegram ids are BigInt (they exceed 32-bit); internal ids are cuid.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  PLAYER
+  MODERATOR
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+  DELETED
+}
+
+enum MatchMode {
+  CASUAL
+  RANKED
+  PRIVATE
+  AI
+  TOURNAMENT
+}
+
+enum MatchStatus {
+  WAITING
+  IN_PROGRESS
+  FINISHED
+  ABANDONED
+  CANCELLED
+}
+
+enum PlayerColor {
+  WHITE
+  BLACK
+}
+
+enum GameEndReason {
+  SINGLE
+  GAMMON
+  BACKGAMMON
+  DOUBLE_DECLINED
+  RESIGNATION
+  FORFEIT
+}
+
+enum AiLevel {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+  GRANDMASTER
+}
+
+// ── Identity ─────────────────────────────────────────────────────────────────
+
+/// A player, identified by their immutable Telegram user id.
+model User {
+  id                String     @id @default(cuid())
+  telegramId        BigInt     @unique
+  username          String?
+  firstName         String
+  displayName       String?
+  lastName          String?
+  languageCode      String?
+  photoUrl          String?
+  isTelegramPremium Boolean    @default(false)
+  role              UserRole   @default(PLAYER)
+  status            UserStatus @default(ACTIVE)
+  lastSeenAt        DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  stats         PlayerStats?
+  rating        Rating?
+  refreshTokens RefreshToken[]
+  matchPlayers  MatchPlayer[]
+  wonMatches    Match[]        @relation("MatchWinner")
+  bansReceived  Ban[]          @relation("BanTarget")
+  bansIssued    Ban[]          @relation("BanIssuer")
+
+  @@index([status])
+  @@index([username])
+}
+
+/// One rotating refresh-token record ≈ one authenticated device/session.
+/// Only the hash of the token is stored; the raw value never touches the DB.
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String    @unique
+  /// Rotation family: reuse of a revoked token in the same family signals theft.
+  family       String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?   @unique
+  userAgent    String?
+  ip           String?
+  createdAt    DateTime  @default(now())
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy  RefreshToken? @relation("TokenRotation", fields: [replacedById], references: [id], onDelete: SetNull)
+  replacedFor RefreshToken? @relation("TokenRotation")
+
+  @@index([userId])
+  @@index([family])
+  @@index([expiresAt])
+}
+
+// ── Profile / progression ────────────────────────────────────────────────────
+
+/// Aggregate lifetime statistics (1-1 with User). Denormalized for fast reads.
+model PlayerStats {
+  userId          String   @id
+  gamesPlayed     Int      @default(0)
+  wins            Int      @default(0)
+  losses          Int      @default(0)
+  gammonsWon      Int      @default(0)
+  backgammonsWon  Int      @default(0)
+  currentStreak   Int      @default(0)
+  bestStreak      Int      @default(0)
+  totalPointsWon  Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// ELO-style rating (1-1 with User). Per-variant ratings can be added later.
+model Rating {
+  userId     String   @id
+  elo        Int      @default(1200)
+  peakElo    Int      @default(1200)
+  gamesRated Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([elo])
+}
+
+// ── Matches ──────────────────────────────────────────────────────────────────
+
+/// A single game (or match) record. The authoritative game state lives in Redis
+/// while live; on completion the outcome and event log are persisted here.
+model Match {
+  id              String        @id @default(cuid())
+  mode            MatchMode
+  status          MatchStatus   @default(WAITING)
+  variant         String        @default("standard")
+  /// Match length in points; null = single "money" game.
+  pointsToWin     Int?
+  useDoublingCube Boolean       @default(true)
+  /// Provable-fairness: hash committed at start, seed revealed at end.
+  seedCommitment  String?
+  seedReveal      String?
+  winnerId        String?
+  endReason       GameEndReason?
+  cubeValue       Int?
+  pointsAwarded   Int?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  winner  User?         @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  players MatchPlayer[]
+  events  GameEvent[]
+
+  @@index([status, mode])
+  @@index([createdAt])
+  @@index([winnerId])
+}
+
+/// A participant in a match. `userId` is null for AI opponents.
+model MatchPlayer {
+  id       String      @id @default(cuid())
+  matchId  String
+  userId   String?
+  color    PlayerColor
+  isAI     Boolean     @default(false)
+  aiLevel  AiLevel?
+  eloBefore Int?
+  eloAfter  Int?
+  isWinner Boolean     @default(false)
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([matchId, color])
+  @@index([matchId])
+  @@index([userId])
+}
+
+/// Append-only, ordered event log for a match — the source of truth for replay,
+/// spectating, and anti-cheat auditing. `data` holds the engine event payload.
+model GameEvent {
+  id        String   @id @default(cuid())
+  matchId   String
+  seq       Int
+  type      String
+  data      Json
+  createdAt DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, seq])
+  @@index([matchId])
+}
+
+// ── Moderation ───────────────────────────────────────────────────────────────
+
+/// A ban applied to a user. `expiresAt = null` means a permanent ban.
+model Ban {
+  id         String    @id @default(cuid())
+  userId     String
+  issuedById String?
+  reason     String
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user     User  @relation("BanTarget", fields: [userId], references: [id], onDelete: Cascade)
+  issuedBy User? @relation("BanIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}

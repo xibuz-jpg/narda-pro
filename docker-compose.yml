@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────────
+# Narda Pro — local development stack.
+# Production uses an orchestrated variant (docker-compose.prod.yml)
+# with replicas, health-gated deploys and external managed DB/Redis.
+# ─────────────────────────────────────────────────────────────
+name: narda-pro
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-narda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_prod}
+      POSTGRES_DB: ${POSTGRES_DB:-narda}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-narda} -d ${POSTGRES_DB:-narda}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Application services (api, web) and the observability stack
+  # (prometheus, grafana) are wired in during their respective phases.
+
+volumes:
+  postgres-data:
+  redis-data:
