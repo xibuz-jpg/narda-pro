@@ -8,6 +8,7 @@ import {
   hingeTexture,
   vignetteTexture,
   emblemTexture,
+  inkMask,
 } from './textures';
 
 /**
@@ -52,11 +53,11 @@ interface AnimMove {
 
 const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
 
-/** Loads an image URL into a Pixi texture, or resolves null if it's missing. */
-function loadImageTexture(url: string): Promise<Texture | null> {
+/** Loads an image URL, or resolves null if it's missing. */
+function loadImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => resolve(Texture.from(img));
+    img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.src = url;
   });
@@ -97,6 +98,7 @@ export class BoardRenderer {
   private texDie: Texture[] = [];
   private texHinge!: Texture;
   private texEmblem!: Texture;
+  private texDeerStamp!: Texture; // tintable deer ink for the checker faces
   private emblemIsImage = false;
 
   // Animation state.
@@ -173,14 +175,12 @@ export class BoardRenderer {
    * wood); otherwise falls back to the procedural engraved stag.
    */
   private async loadEmblem(): Promise<void> {
-    const tex = await loadImageTexture('/emblem.png');
-    if (tex) {
-      this.texEmblem = tex;
-      this.emblemIsImage = true;
-    } else {
-      this.texEmblem = Texture.from(emblemTexture(460));
-      this.emblemIsImage = false;
-    }
+    const img = await loadImage('/emblem.png');
+    const source: CanvasImageSource = img ?? emblemTexture(460);
+    this.emblemIsImage = img !== null;
+    this.texEmblem = Texture.from(source as HTMLImageElement);
+    // A tintable ink version of the deer for the checker faces.
+    this.texDeerStamp = Texture.from(inkMask(source, 256));
   }
 
   /** Bake all procedural textures once (design-space resolution). */
@@ -620,28 +620,16 @@ export class BoardRenderer {
       t.scale.y *= this.roundFix;
       c.addChild(t);
     } else {
-      // A little engraved deer on the checker face. A light medallion under it
-      // gives the (multiply-blended) stag contrast on dark checkers too, and it
-      // reads upright for the viewer like the count / centre emblem.
-      const medR = this.checkerR * 0.66;
-      const med = new Graphics();
-      med.circle(0, 0, medR).fill({ color: 0xe6d7b6, alpha: player === Player.White ? 0.55 : 0.9 });
-      med.circle(0, 0, medR).stroke({ width: 1.5, color: 0x8a6a3e, alpha: 0.45 });
-      med.scale.x *= this.roundFix; // no rotation → circular fix on x, like the checker
-      c.addChild(med);
-
-      const deer = new Sprite(this.texEmblem);
+      // The deer drawn straight onto the stone: dark ink on a light checker,
+      // white on a black one. Reads upright for the viewer, like the count.
+      const deer = new Sprite(this.texDeerStamp);
       deer.anchor.set(0.5);
-      deer.width = medR * 1.95;
-      deer.height = medR * 1.95;
-      if (this.emblemIsImage) {
-        deer.blendMode = 'multiply';
-        deer.alpha = 0.95;
-      } else {
-        deer.alpha = 0.7;
-      }
-      deer.rotation = -this.stageRot; // upright for the viewer
-      deer.scale.y *= this.roundFix; // rotated sprite → stretch fix on y
+      deer.width = this.checkerR * 1.5;
+      deer.height = this.checkerR * 1.5;
+      deer.tint = player === Player.White ? 0x2a1c10 : 0xf3ecdc;
+      deer.alpha = player === Player.White ? 0.6 : 0.95;
+      deer.rotation = -this.stageRot;
+      deer.scale.y *= this.roundFix;
       c.addChild(deer);
     }
     c.position.set(x, y);

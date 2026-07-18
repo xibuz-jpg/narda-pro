@@ -13,6 +13,8 @@ interface TelegramWebApp {
   setHeaderColor?(color: string): void;
   setBackgroundColor?(color: string): void;
   openTelegramLink?(url: string): void;
+  /** Client platform: 'android' | 'ios' | 'tdesktop' | 'macos' | 'weba' | … */
+  platform?: string;
 }
 
 declare global {
@@ -44,6 +46,17 @@ export function getInitData(): string | null {
 /** The Telegram client's language code (e.g. "ru", "uz"), if available. */
 export function getTelegramLanguage(): string | null {
   return getTelegram()?.initDataUnsafe?.user?.language_code ?? null;
+}
+
+/**
+ * True when the Mini App is running on a desktop Telegram client (a narrow
+ * side panel), where the board should stay locked to the vertical layout.
+ * Mobile clients (android/ios) keep the orientation toggle.
+ */
+export function isDesktopTelegram(): boolean {
+  const p = getTelegram()?.platform ?? null;
+  if (!p) return false;
+  return !['android', 'android_x', 'ios'].includes(p);
 }
 
 /** The bot username backing the Mini App (for building invite deep links). */

@@ -123,10 +123,11 @@ export function checkerTexture(diameter: number, light: boolean): HTMLCanvasElem
     body.addColorStop(0.82, '#d8c49a');
     body.addColorStop(1, '#a9906087');
   } else {
-    body.addColorStop(0, '#565663');
-    body.addColorStop(0.45, '#2b2b35');
-    body.addColorStop(0.82, '#181820');
-    body.addColorStop(1, '#050509');
+    // A true black stone — just a hint of top sheen keeps the dome readable.
+    body.addColorStop(0, '#3a3a42');
+    body.addColorStop(0.4, '#111116');
+    body.addColorStop(0.8, '#060608');
+    body.addColorStop(1, '#000000');
   }
   x.beginPath();
   x.arc(cx, cy, rr, 0, Math.PI * 2);
@@ -152,8 +153,8 @@ export function checkerTexture(diameter: number, light: boolean): HTMLCanvasElem
     inner.addColorStop(0, '#fff9ec');
     inner.addColorStop(1, '#e4d3ab');
   } else {
-    inner.addColorStop(0, '#3a3a45');
-    inner.addColorStop(1, '#15151c');
+    inner.addColorStop(0, '#26262e');
+    inner.addColorStop(1, '#050508');
   }
   x.beginPath();
   x.arc(cx, cy, rr * 0.44, 0, Math.PI * 2);
@@ -394,6 +395,31 @@ export function emblemTexture(size: number): HTMLCanvasElement {
   return c;
 }
 
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+/**
+ * Turns an emblem (light-background line art, or a silhouette) into a tintable
+ * ink stamp: white pixels whose alpha is the source's darkness × opacity. The
+ * result can be `tint`ed dark to engrave onto a light checker, or white to draw
+ * onto a black one. Same-origin sources only (so the canvas isn't tainted).
+ */
+export function inkMask(source: CanvasImageSource, size = 256): HTMLCanvasElement {
+  const c = makeCanvas(size, size);
+  const x = c.getContext('2d')!;
+  x.drawImage(source, 0, 0, size, size);
+  const img = x.getImageData(0, 0, size, size);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = (0.299 * d[i]! + 0.587 * d[i + 1]! + 0.114 * d[i + 2]!) / 255;
+    const alpha = d[i + 3]! / 255;
+    d[i] = 255;
+    d[i + 1] = 255;
+    d[i + 2] = 255;
+    d[i + 3] = Math.round((1 - lum) * alpha * 255);
+  }
+  x.putImageData(img, 0, 0);
+  return c;
+}
 
 /** A soft radial vignette (transparent centre → shadowed corners) for depth. */
 export function vignetteTexture(w: number, h: number): HTMLCanvasElement {
