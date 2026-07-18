@@ -45,8 +45,8 @@ export interface IntentResult {
 const DEADLINES_KEY = 'game:deadlines';
 const onlineKey = (matchId: string): string => `game:online:${matchId}`;
 
-/** Chess-clock timing: 10s grace per action, then a 3.5-minute reserve bank. */
-const PER_MOVE_MS = 10_000;
+/** Chess-clock timing: 15s grace per action, then a 3.5-minute reserve bank. */
+const PER_MOVE_MS = 15_000;
 const RESERVE_MS = 210_000;
 const freshReserve = (): Record<Player, number> => ({
   [Player.White]: RESERVE_MS,

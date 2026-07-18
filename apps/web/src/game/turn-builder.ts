@@ -143,6 +143,58 @@ export class TurnBuilder {
     return this.candidates().filter((m) => m.from === from);
   }
 
+  /**
+   * Reachable end-points for the checker on `from`, each paired with the move
+   * sequence to play it there. A one-move option is a single-die step; a
+   * multi-move option chains that same checker across several dice so it can be
+   * played all the way in one tap. Only sequences that are a prefix of a
+   * maximum-length turn are offered (so the turn can never be under-played), and
+   * the head rule is respected.
+   */
+  moveOptions(from: number | typeof BAR): Array<{ to: number | 'off'; moves: Move[] }> {
+    if (this.maxLen - this.moves.length <= 0) return [];
+    const results = new Map<number | 'off', Move[]>();
+
+    const walk = (
+      board: Board,
+      pos: number | 'off' | typeof BAR,
+      dice: number[],
+      path: Move[],
+      headUsed: number,
+    ): void => {
+      // A recorded endpoint is always a move.to (a point or 'off'), never the bar.
+      if (path.length > 0 && !results.has(pos as number | 'off')) results.set(pos as number | 'off', [...path]);
+      if (pos === 'off') return;
+      const tried = new Set<number>();
+      for (let i = 0; i < dice.length; i += 1) {
+        const die = dice[i]!;
+        if (tried.has(die)) continue;
+        tried.add(die);
+        for (const move of this.gen(board, this.player, die as Die)) {
+          if (move.from !== pos) continue; // keep chaining the SAME checker
+          const nextHead = headUsed + (move.from === this.head ? 1 : 0);
+          if (this.head !== -1 && nextHead > this.maxFromHead) continue;
+          const rest = [...dice.slice(0, i), ...dice.slice(i + 1)];
+          const nextBoard = this.apply(board, this.player, move);
+          const reachAfter = this.maxUsable(nextBoard, rest, nextHead);
+          if (this.moves.length + path.length + 1 + reachAfter !== this.maxLen) continue;
+          walk(nextBoard, move.to as number | 'off', rest, [...path, move], nextHead);
+        }
+      }
+    };
+    walk(this.board, from, [...this.diceLeft], [], this.headUsed());
+
+    let options = [...results.entries()].map(([to, moves]) => ({ to, moves }));
+    // Single-die turn: the higher die must be the one played.
+    if (this.moves.length === 0 && this.maxLen === 1 && !this.isDouble) {
+      const high = Math.max(this.first, this.second);
+      if (options.some((o) => o.moves[0]!.die === high)) {
+        options = options.filter((o) => o.moves[0]!.die === high);
+      }
+    }
+    return options;
+  }
+
   play(move: Move): void {
     this.moves.push(move);
     this.history.push(this.apply(this.board, this.player, move));

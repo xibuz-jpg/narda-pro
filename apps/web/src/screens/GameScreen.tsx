@@ -99,7 +99,7 @@ export function GameScreen() {
     tb && isMyTurn
       ? selected === null
         ? { sources: tb.sources() as BoardTarget[] }
-        : { selected, destinations: tb.destinations(selected).map((m) => m.to) as BoardTarget[] }
+        : { selected, destinations: tb.moveOptions(selected).map((o) => o.to) as BoardTarget[] }
       : {};
 
   const isSource = (t: BoardTarget): t is number | 'bar' => t !== 'off' && tb!.sources().includes(t);
@@ -110,9 +110,11 @@ export function GameScreen() {
       if (isSource(target)) setSelected(target);
       return;
     }
-    const move = tb.destinations(selected).find((m) => m.to === target);
-    if (move) {
-      tb.play(move);
+    // A tapped destination may be one die (a step) or several chained onto the
+    // same checker (played all at once).
+    const option = tb.moveOptions(selected).find((o) => o.to === target);
+    if (option) {
+      option.moves.forEach((m) => tb.play(m));
       setSelected(null);
       if (tb.isComplete) {
         submitMoves(tb.result());
