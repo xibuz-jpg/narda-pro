@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { UserRole, UserStatus } from '@prisma/client';
-import { UserRepository, type UserWithProfile } from './user.repository';
+import { UserRepository, type FriendSummary, type UserWithProfile } from './user.repository';
 import { toUserProfile, type UserProfile } from './user.mapper';
 import { RedisService } from '../redis/redis.service';
 import type { TelegramUser } from '../auth/telegram/telegram-init-data';
@@ -63,6 +63,11 @@ export class UsersService {
     const user = await this.repo.findById(id);
     if (!user) throw new NotFoundException('User not found');
     return toUserProfile(user);
+  }
+
+  /** The user's friends (private-game opponents) with head-to-head records. */
+  getFriends(id: string): Promise<FriendSummary[]> {
+    return this.repo.findFriendsWithStats(id);
   }
 
   /** Updates the player's chosen display name and returns the fresh profile. */

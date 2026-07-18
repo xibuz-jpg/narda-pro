@@ -3,7 +3,7 @@ import {
   getStoredRefreshToken,
   setStoredRefreshToken,
 } from '../store/auth.store';
-import type { AuthResult, AuthTokens, UserProfile } from './types';
+import type { AuthResult, AuthTokens, Friend, UserProfile } from './types';
 import type { GameView } from '../game/types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
@@ -103,6 +103,8 @@ export const api = {
 
   updateName: (displayName: string): Promise<UserProfile> =>
     request('/users/me', { method: 'PATCH', body: { displayName } }),
+
+  getFriends: (): Promise<Friend[]> => request('/users/me/friends'),
 
   createAiGame: (level: string): Promise<GameView> =>
     request('/games/ai', { method: 'POST', body: { level } }),

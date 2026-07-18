@@ -40,8 +40,9 @@ export class InviteService {
     private readonly events: EventEmitter2,
   ) {}
 
-  /** Reserves a fresh invite code for the host. Friend games are CASUAL (no ELO). */
-  async create(hostUserId: string, mode: MatchMode = 'CASUAL'): Promise<{ code: string }> {
+  /** Reserves a fresh invite code for the host. Friend games are PRIVATE — no
+   *  ELO, and they mark the two players as friends (see UsersService.getFriends). */
+  async create(hostUserId: string, mode: MatchMode = 'PRIVATE'): Promise<{ code: string }> {
     const invite: Invite = { hostUserId, mode, createdAt: Date.now() };
     // SET NX so two hosts never collide on the same code; retry on the rare clash.
     for (let attempt = 0; attempt < 8; attempt += 1) {

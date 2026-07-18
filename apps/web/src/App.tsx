@@ -9,6 +9,7 @@ import { LoginScreen } from './screens/LoginScreen';
 import { NameScreen } from './screens/NameScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { InviteScreen } from './screens/InviteScreen';
+import { FriendsScreen } from './screens/FriendsScreen';
 
 // The board screens pull in PixiJS (the bulk of the bundle); load them lazily
 // so the login/home flow doesn't download the renderer up front.
@@ -42,6 +43,8 @@ export default function App() {
       </Suspense>
     );
   }
+
+  if (screen === 'friends') return <FriendsScreen />;
 
   if (screen === 'boardPreview') {
     return (

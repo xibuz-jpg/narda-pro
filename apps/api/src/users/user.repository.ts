@@ -8,6 +8,20 @@ export type UserWithProfile = Prisma.UserGetPayload<{
   include: { rating: true; stats: true };
 }>;
 
+/** A friend and the head-to-head record against the current user. */
+export interface FriendSummary {
+  id: string;
+  name: string;
+  username: string | null;
+  photoUrl: string | null;
+  /** Finished private games played together. */
+  games: number;
+  /** Times the friend beat you. */
+  theirWins: number;
+  /** Times you beat the friend (i.e. the friend's losses vs you). */
+  yourWins: number;
+}
+
 /**
  * Persistence boundary for users (Repository pattern). All Prisma access for
  * the user aggregate lives here; services depend on this, never on Prisma
@@ -26,6 +40,54 @@ export class UserRepository {
 
   findByTelegramId(telegramId: bigint): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { telegramId } });
+  }
+
+  /**
+   * The user's friends — everyone they've played a private (invite) game with —
+   * each with the head-to-head record. A friend appears as soon as a private
+   * match exists (even mid-game); the win/loss tallies count finished games.
+   */
+  async findFriendsWithStats(userId: string): Promise<FriendSummary[]> {
+    const matches = await this.prisma.match.findMany({
+      where: { mode: 'PRIVATE', players: { some: { userId } } },
+      select: { status: true, winnerId: true, players: { select: { userId: true } } },
+    });
+
+    const agg = new Map<string, { games: number; theirWins: number; yourWins: number }>();
+    for (const m of matches) {
+      const opponentId = m.players.map((p) => p.userId).find((id) => id && id !== userId);
+      if (!opponentId) continue;
+      const rec = agg.get(opponentId) ?? { games: 0, theirWins: 0, yourWins: 0 };
+      if (m.status === 'FINISHED') {
+        rec.games += 1;
+        if (m.winnerId === opponentId) rec.theirWins += 1;
+        else if (m.winnerId === userId) rec.yourWins += 1;
+      }
+      agg.set(opponentId, rec);
+    }
+
+    const friendIds = [...agg.keys()];
+    if (friendIds.length === 0) return [];
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: friendIds } },
+      select: { id: true, firstName: true, displayName: true, username: true, photoUrl: true },
+    });
+
+    return users
+      .map((u) => {
+        const rec = agg.get(u.id)!;
+        return {
+          id: u.id,
+          name: u.displayName ?? u.firstName,
+          username: u.username,
+          photoUrl: u.photoUrl,
+          games: rec.games,
+          theirWins: rec.theirWins,
+          yourWins: rec.yourWins,
+        };
+      })
+      .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
   }
 
   /** Sets the player's chosen display name (their in-game name). */

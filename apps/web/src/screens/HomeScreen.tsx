@@ -104,6 +104,10 @@ export function HomeScreen() {
           </button>
         )}
 
+        <button className="btn-ghost w-full" onClick={() => go('friends')}>
+          {t('home.friends')}
+        </button>
+
         <div className="mt-1">
           <div className="mb-2 text-center text-xs uppercase tracking-wide text-slate-500">
             {t('home.practiceAi')}

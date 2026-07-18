@@ -14,6 +14,19 @@ export interface UserProfile {
   createdAt: string;
 }
 
+/** A friend (private-game opponent) with the head-to-head record. */
+export interface Friend {
+  id: string;
+  name: string;
+  username: string | null;
+  photoUrl: string | null;
+  games: number;
+  /** Times the friend beat you. */
+  theirWins: number;
+  /** Times you beat the friend. */
+  yourWins: number;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
