@@ -49,3 +49,6 @@ secrets/
 # Tunnel runtime output
 cf.out
 cf.log
+
+# temp video analysis frames
+scripts/vidframes/

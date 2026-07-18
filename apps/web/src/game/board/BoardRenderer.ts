@@ -719,7 +719,7 @@ export class BoardRenderer {
   private paintDice(dice: { first: number; second: number } | null, tumbling = false): void {
     this.dice.removeChildren().forEach((c) => c.destroy());
     if (!dice) return;
-    const size = this.pointW * 0.85;
+    const size = this.pointW * 0.98;
     // Dice go on the active player's half (Black = design-left/portrait-top,
     // White = design-right/portrait-bottom) and read upright for that player.
     const cx =
